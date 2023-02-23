@@ -41,3 +41,29 @@ resource "aws_route_table_association" "vpc_route_association" {
   subnet_id      = element(aws_subnet.vpc-subnet.*.id, count.index)
   route_table_id = aws_route_table.vpc_route.id
 }
+resource "aws_security_group" "allow_all" {
+  name        = "Dev-B7-sg"
+  description = "Allow all inbound traffic"
+  vpc_id      = aws_vpc.vpc_tf.id
+
+  ingress {
+    description = "ALL TRAFFIC from VPC"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+
+  }
+
+  tags = {
+    Name = "MEGA-SG"
+  }
+}
