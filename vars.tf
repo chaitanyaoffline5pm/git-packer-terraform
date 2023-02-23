@@ -3,6 +3,3 @@ variable "vpc_name" {}
 variable "public_subnet" {}
 variable "az" {}
 variable "key" {}
-
-
-
