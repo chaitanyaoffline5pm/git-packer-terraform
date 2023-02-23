@@ -1,0 +1,60 @@
+{
+    "_comment": "Create a AWS AMI with Ubuntu",
+    "variables": {
+        "region": "",
+        "source_ami": "",
+        "instance_type": "",
+        "vpc_id": "",
+        "subnet_id": ""
+    },
+    "_comment1": "packer build -var \"aws_secret_key=foo\" packer.json",
+    "_comment2": "packer build -var-file packer-vars.json packer.json",
+    "builders": [
+        {
+            "type": "amazon-ebs",
+            "region": "{{user `region`}}",
+            "source_ami": "{{user `source_ami`}}",
+            "instance_type": "{{user `instance_type`}}",
+            "ssh_username": "ubuntu",
+            "ami_name": "Awsb4-Test-Build-{{isotime | clean_resource_name}}",
+            "vpc_id": "{{user `vpc_id`}}",
+            "subnet_id": "{{user `subnet_id`}}",
+            "tags": {
+                "Name": "Awsb4-Test-Build-{{isotime | clean_resource_name}}"
+            }
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell",
+            "inline": [
+                "sleep 30",
+                "sudo apt update -y",
+                "sudo apt install unzip jq nginx -y",
+                "sudo apt install git -y",
+                "sudo git clone https://github.com/chaitanyadurgasoft/website.git",
+                "sudo rm -rf /var/www/html/index.nginx-debian.html",
+                "sudo cp website/index.html /var/www/html/index.nginx-debian.html",
+                "sudo cp website/aws.png /var/www/html/aws.png",
+                "sudo cp website/cloud.jpg /var/www/html/cloud.jpg",
+                "sudo service nginx start",
+                "sudo systemctl enable nginx",
+                "curl https://get.docker.com | bash",
+                "curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip ",
+                "unzip awscliv2.zip",
+                "sudo ./aws/install",
+                "sudo apt update -y",
+                "sudo apt install software-properties-common",
+                "sudo add-apt-repository --yes --update ppa:ansible/ansible",
+                "sudo apt install ansible -y",
+                "cd /usr/local/bin",
+                "wget https://releases.hashicorp.com/terraform/1.3.9/terraform_1.3.9_linux_amd64.zip",
+                "unzip terraform_1.3.9_linux_amd64.zip",
+                "rm -rf terraform_1.3.9_linux_amd64.zip",
+                "wget https://releases.hashicorp.com/packer/1.8.6/packer_1.8.6_linux_amd64.zip",
+                "unzip packer_1.8.6_linux_amd64.zip",
+                "rm -rf packer_1.8.6_linux_amd64.zip"
+            ]
+        }
+    ]
+}

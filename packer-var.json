@@ -1,0 +1,7 @@
+{
+    "region": "us-east-2",
+    "source_ami": "ami-00eeedc4036573771",
+    "instance_type": "t2.micro",
+    "vpc_id": "vpc-03e8da96bf3698a2a",
+    "subnet_id": "subnet-0d39d62d4dde43d17"
+}
