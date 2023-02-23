@@ -1,0 +1,128 @@
+- name: Installing docker in all the servers
+  hosts: docker_servers
+  become: yes
+  become_user: root
+  gather_facts: yes
+  tasks:
+    - name: Update the server
+      shell: apt update -y
+    - name: Install docker on all the servers
+      shell: curl -sL http://get.docker.com | bash
+    - name: get docker version
+      shell: docker version| head -2 | grep Version| cut -d ':' -f2
+      register: version
+    - name: print docker version
+      debug:
+        msg: "{{ version.stdout }}"
+  tags:
+    - Install
+# enable docker swarn in leader node
+- name: enable docker swarm in leader node
+  hosts: leader
+  become: yes
+  become_user: root
+  gather_facts: yes
+  tasks:
+    - name: check docker swarm is enable or not
+      shell: docker info| grep Swarm | cut -d ' ' -f3
+      register: swarm_status
+    - name: print swarm status
+      debug:
+        msg: "{{ swarm_status}}"
+    - name: enable docker swarm
+      shell: docker swarm init
+      when: "'inactive' in swarm_status.stdout"
+      tags:
+        - active
+    - name: disable the docker
+      shell: docker swarm leave --force
+      when: "'inactive' not in swarm_status.stdout"
+    - name: get docker info
+      shell: docker info | grep Swarm | cut -d ' ' -f3
+      register: newswarm_status
+    - set_fact:
+        status: "{{ newswarm_status.stdout }}"
+    - name: get the current status of swarm
+      debug:
+        msg: the current status is {{ newswarm_status.stdout_lines }}
+      tags:
+        - enbale
+    - name: get Manger token
+      shell: docker swarm join-token -q manager
+      register: manager_token
+      when: "'active' in newswarm_status.stdout"
+    - set_fact:
+        docker_manager_token: "{{ manager_token.stdout }}"
+    - name: get worker token
+      shell: docker swarm join-token -q worker
+      register: worker_token
+      when: "'active' in newswarm_status.stdout"
+    - set_fact:
+        docker_worker_token: "{{ worker_token.stdout }}"
+    - name: Get the leader private PrivateIp
+      shell: curl -sL http://169.254.169.254/latest/meta-data/local-ipv4
+      register: manager_ip
+      when: "'active' in newswarm_status.stdout"
+    - set_fact:
+        leader_Private_Ip: "{{ manager_ip.stdout }}"
+    - name: export Manager token
+      add_host:
+        name: manager_swarm_token
+        shared_variable: "{{ docker_manager_token }}"
+    - name: export worker token
+      add_host:
+        name: worker_swarm_token
+        shared_variable: "{{ docker_worker_token }}"
+    - name: export Ip address
+      add_host:
+        name: manager_ip_address
+        shared_variable: "{{ leader_Private_Ip }}"
+  tags:
+    - get_facts
+# Enable Docker Manager Node
+- name: adding manager nodes
+  hosts: manager
+  gather_facts: yes
+  become: yes
+  become_user: root
+  vars:
+    master_private_ip: "{{ hostvars['manager_ip_address']['shared_variable']}}"
+    manager_token: "{{ hostvars['manager_swarm_token']['shared_variable'] }}"
+  tasks:
+    - name: Adding mananger node
+      shell: docker swarm join --token {{ manager_token }} {{ master_private_ip }}:2377
+  tags: add_manager
+# Enable Docker Worker Node
+- name: adding Worker nodes
+  hosts: worker
+  gather_facts: yes
+  become: yes
+  become_user: root
+  vars:
+    master_private_ip: "{{ hostvars['manager_ip_address']['shared_variable']}}"
+    worker_token: "{{ hostvars['worker_swarm_token']['shared_variable'] }}"
+  tasks:
+    - name: Adding worker node
+      shell: docker swarm join --token {{ worker_token }} {{ master_private_ip }}:2377
+  tags: add_worker
+
+#  docker visualizer in leader node
+- name: Run docker visualizer
+  hosts: leader
+  gather_facts: yes
+  become: yes
+  become_user: root
+  tasks:
+    - name: Create a docker visualizer
+      shell: docker run -it -d -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock dockersamples/visualizer
+# docker container run
+- name: Run docker container
+  hosts: leader
+  gather_facts: yes
+  become: yes
+  become_user: root
+  tasks:
+    - name: Create a docker container
+      shell: docker service create --name webapp --publish 8000:80 --replicas 6 chaitanyamanikumar/awsb1website:v1
+  tags:
+    container
